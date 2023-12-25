@@ -15,6 +15,7 @@ class GroceryList extends StatefulWidget {
 class _GroceryListState extends State<GroceryList> {
   List<GroceryItem> _groceryItems = [];
   var _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -26,6 +27,12 @@ class _GroceryListState extends State<GroceryList> {
     final url = Uri.https(
         'flutter-prep-7b448-default-rtdb.firebaseio.com', 'shopping-list.json');
     final response = await http.get(url);
+
+    if (response.statusCode >= 400) {
+      setState(() {
+        _error = 'Failed to fetch data. Please try a again later.';
+      });
+    }
     // print(response.body);
     // decode = ถอดรหัส
     // listData type map มีค่า (key = String, value = Map<String, dynamic>)
@@ -109,6 +116,12 @@ class _GroceryListState extends State<GroceryList> {
             ),
           ),
         ),
+      );
+    }
+
+    if (_error != null) {
+      content = Center(
+        child: Text(_error!),
       );
     }
 
