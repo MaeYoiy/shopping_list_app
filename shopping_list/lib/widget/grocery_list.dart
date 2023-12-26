@@ -26,38 +26,53 @@ class _GroceryListState extends State<GroceryList> {
   void _loadItems() async {
     final url = Uri.https(
         'flutter-prep-7b448-default-rtdb.firebaseio.com', 'shopping-list.json');
-    final response = await http.get(url);
 
-    if (response.statusCode >= 400) {
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode >= 400) {
+        setState(() {
+          _error = 'Failed to fetch data. Please try a again later.';
+        });
+      }
+
+      // ในกรณีที่ไม่มีข้อมูลใน database
+      if (response.body == 'null') {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      // print(response.body);
+      // decode = ถอดรหัส
+      // listData type map มีค่า (key = String, value = Map<String, dynamic>)
+      // และใน Map มีค่า (key = String, value = dynamic) ที่เป็นแบบ dynamic ก็เพราะว่า มี value ที่เป็น 2 แบบคือ String ("Vegetables", "mink") และ int (12)
+      // รูปแบบ Map เป็น แบบนี้ {"-Nlr476qqFM0X-2UFp7R":{"category":"Vegetables","name":"mink","quantity":12},
+      // final Map<String, Map<String, dynamic>> listData = json.decode(response.body);
+      final Map<String, dynamic> listData = json.decode(response.body);
+      final List<GroceryItem> loadItems = [];
+      for (final item in listData.entries) {
+        // firstWhere คือเอาตัวแรกที่เจอ
+        final category = categories.entries
+            .firstWhere(
+                (catItem) => catItem.value.title == item.value['category'])
+            .value;
+        loadItems.add(
+          GroceryItem(
+              id: item.key,
+              name: item.value['name'],
+              quantity: item.value['quantity'],
+              category: category),
+        );
+      }
       setState(() {
-        _error = 'Failed to fetch data. Please try a again later.';
+        _groceryItems = loadItems;
+      });
+    } catch (error) {
+      setState(() {
+        _error = 'Something went wrong!. Please try a again later.';
       });
     }
-    // print(response.body);
-    // decode = ถอดรหัส
-    // listData type map มีค่า (key = String, value = Map<String, dynamic>)
-    // และใน Map มีค่า (key = String, value = dynamic) ที่เป็นแบบ dynamic ก็เพราะว่า มี value ที่เป็น 2 แบบคือ String ("Vegetables", "mink") และ int (12)
-    // รูปแบบ Map เป็น แบบนี้ {"-Nlr476qqFM0X-2UFp7R":{"category":"Vegetables","name":"mink","quantity":12},
-    // final Map<String, Map<String, dynamic>> listData = json.decode(response.body);
-    final Map<String, dynamic> listData = json.decode(response.body);
-    final List<GroceryItem> loadItems = [];
-    for (final item in listData.entries) {
-      // firstWhere คือเอาตัวแรกที่เจอ
-      final category = categories.entries
-          .firstWhere(
-              (catItem) => catItem.value.title == item.value['category'])
-          .value;
-      loadItems.add(
-        GroceryItem(
-            id: item.key,
-            name: item.value['name'],
-            quantity: item.value['quantity'],
-            category: category),
-      );
-    }
-    setState(() {
-      _groceryItems = loadItems;
-    });
   }
 
   void _addItem() async {
@@ -76,11 +91,22 @@ class _GroceryListState extends State<GroceryList> {
     });
   }
 
-  void _removeItem(GroceryItem item) {
+  void _removeItem(GroceryItem item) async {
+    final index = _groceryItems.indexOf(item);
     setState(() {
       _groceryItems.remove(item);
-      _isLoading = false;
+      // _isLoading = false;
     });
+    final url = Uri.https('flutter-prep-7b448-default-rtdb.firebaseio.com',
+        'shopping-list/${item.id}.json');
+    final response = await http.delete(url);
+
+    // ถ้า statusCode >= 400 ให้ทำการ insert ตัวที่เราลบออกไป สำหรับกรณี error
+    if (response.statusCode >= 400) {
+      setState(() {
+        _groceryItems.insert(index, item);
+      });
+    }
   }
 
   @override
